@@ -42,6 +42,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .fetch_all(&pool)
     .await?;
 
+    // Compiles fine, but does not check input or output types (but, does check SQL statement
+    // validity).
+    // @mehcode says: "Coming in 0.4 you'll be able to do SELECT x as "x: _" to override the
+    // incoming SQL type and use whatever you have in the struct."
+    let customer_names: Vec<Customer> = sqlx::query_as_unchecked!(
+        Customer,
+        "SELECT
+            json_column
+        FROM
+            test"
+    )
+    .fetch_all(&pool)
+    .await?;
+
     println!("{:?}", customer_names);
     Ok(())
 }
