@@ -1,8 +1,9 @@
-use std::env;
 use serde::{Deserialize, Serialize};
-use sqlx::mysql::{MySqlPool, MySql};
-use sqlx::FromRow;
+use sqlx::postgres::PgQueryAs;
+use sqlx::postgres::{PgPool, Postgres};
 use sqlx::types::Json;
+use sqlx::FromRow;
+use std::env;
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 struct Customer {
@@ -11,20 +12,36 @@ struct Customer {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-                let pool: MySqlPool = MySqlPool::builder()
-                    .max_size(1)
-                    .build(&env::var("DATABASE_URL")? as &str)
-                    .await?;
+    let pool: PgPool = PgPool::builder()
+        .max_size(1)
+        .build(&env::var("DATABASE_URL")? as &str)
+        .await?;
 
-                let customer_names: Vec<Customer> = sqlx::query_as::<MySql, Customer>(
-                    "SELECT
+    // Works fine
+    let customer_names: Vec<Customer> = sqlx::query_as::<Postgres, Customer>(
+        "SELECT
+            json_column
+        FROM
+            test",
+    )
+    .fetch_all(&pool)
+    .await?;
+
+    println!("{:?}", customer_names);
+
+    // Comile error: the trait
+    // `sqlx::result_ext::ResultExt<sqlx_core::types::json::Json<std::vec::Vec<std::string::String>>>`
+    // is not implemented for `std::result::Result<std::option::Option<serde_json::value::Value>, sqlx_core::error::Error>`
+    let customer_names: Vec<Customer> = sqlx::query_as!(
+        Customer,
+        "SELECT
             json_column
         FROM
             test"
-                )
-                .fetch_all(&pool)
-                .await?;
+    )
+    .fetch_all(&pool)
+    .await?;
 
-                println!("{:?}", customer_names);
-                Ok(())
+    println!("{:?}", customer_names);
+    Ok(())
 }
